@@ -115,6 +115,10 @@
         .cmd-btn:hover { background-color: #66fcf1; color: #0b0c10; }
         .reset-btn { background-color: #45a29e; color: #0b0c10; border: none; padding: 10px; font-weight: bold; cursor: pointer; border-radius: 5px; }
         .sys-message { font-size: 1.5em; margin-top: 15px; color: #66fcf1; text-align: center; }
+        
+        #error-banner {
+            display: none; background: #ff4c4c; color: white; padding: 10px; border-radius: 5px; font-weight: bold; margin-bottom: 15px; text-align: center;
+        }
 
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
     </style>
@@ -123,6 +127,7 @@
     <div class="overlay"></div>
 
     <h1>Operation: Mars Touchdown</h1>
+    <div id="error-banner"></div>
     <p class="subtitle" id="role-title">Select Your Crew & Role</p>
 
     <!-- ROLE SELECTION -->
@@ -176,12 +181,10 @@
 
     <script>
         // ==========================================
-        // STEP 4: PASTE YOUR FIREBASE CONFIG HERE
-        // Replace ALL the "YOUR_..." text below with 
-        // the real keys from your Firebase project!
+        // PASTE YOUR NEW FIREBASE CONFIG HERE
         // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyAJ1WQFi7YVjNIRsPIcPQn4GLrdGo7QXNI",
+           apiKey: "AIzaSyAJ1WQFi7YVjNIRsPIcPQn4GLrdGo7QXNI",
   authDomain: "mars-touchdown.firebaseapp.com",
   databaseURL: "https://mars-touchdown-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "mars-touchdown",
@@ -190,10 +193,16 @@
   appId: "1:1094643687694:web:980909b027a52f16a1f75f"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const gameStateRef = db.ref('marsGame');
+        // Initialize Firebase Safely
+        let db;
+        let gameStateRef;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            gameStateRef = db.ref('marsGame');
+        } catch (e) {
+            showError("Firebase Init Error: " + e.message);
+        }
 
         // ==========================================
         // GAME LOGIC
@@ -217,7 +226,7 @@
         let myRole = ''; 
         let myTeam = ''; 
 
-        // Default state fallback
+        // Default local state so the board ALWAYS draws even if Firebase is broken
         let localState = { 
             t1: { x: 3, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR A...' },
             t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
@@ -226,23 +235,35 @@
 
         let obstacleInterval;
 
-        // Firebase Sync Listener with Empty Database Fix!
-        gameStateRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                // If there is data in Firebase, use it
-                localState = data;
-            } else {
-                // If the database is brand new and empty, push our default state to it!
-                gameStateRef.set(localState);
-            }
-            // Always draw the UI!
-            updateUI();
-        });
+        // Listen for Firebase changes (with Error Handling)
+        if (gameStateRef) {
+            gameStateRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    localState = data;
+                } else {
+                    gameStateRef.set(localState).catch(err => showError("Firebase Rules Error: " + err.message));
+                }
+                updateUI(); // Redraw UI when data comes in
+            }, (error) => {
+                // If the API key is revoked or rules deny access, tell the user!
+                showError("Firebase Connection Blocked: " + error.message);
+            });
+        }
+
+        function showError(msg) {
+            const banner = document.getElementById('error-banner');
+            banner.style.display = 'block';
+            banner.innerText = msg;
+            console.error(msg);
+        }
 
         function updateState(newState) {
-            const updated = { ...localState, ...newState };
-            gameStateRef.set(updated); 
+            localState = { ...localState, ...newState };
+            updateUI(); // Instantly update locally first
+            if (gameStateRef) {
+                gameStateRef.set(localState).catch(err => showError("Sync Error: " + err.message)); 
+            }
         }
 
         function selectRole(role) {
@@ -259,13 +280,12 @@
                 document.body.style.backgroundImage = "url('navigator.jpg')";
                 document.getElementById('role-title').innerText = `TEAM ${myTeam === '1' ? 'A' : 'B'} COMMAND (Radar)`;
                 document.getElementById('navigator-screen').style.display = 'flex';
-                
-                // Ensure UI is drawn immediately when switching to Navigator screen
-                updateUI();
-                
-                // Only Nav A acts as the server host for hazards to prevent double-bouncing
                 if (role === 'nav1') startObstacles(); 
             }
+            
+            // ALWAYS force a UI draw the moment they select a role. 
+            // This prevents the blank grid issue entirely.
+            updateUI();
         }
 
         function resetGame() {
@@ -274,7 +294,6 @@
                 t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
                 craters: generateCraters()
             });
-            alert("Mission Server Reset!");
         }
 
         function startObstacles() {
@@ -332,36 +351,38 @@
         });
 
         function updateUI() {
-            if (!localState || !localState.t1) return;
-
-            if (myRole.startsWith('nav')) {
-                const board = document.getElementById('game-board');
-                board.innerHTML = '';
-                for (let y = 0; y < gridSize; y++) {
-                    for (let x = 0; x < gridSize; x++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'cell';
-                        if (x === localState.t1.x && y === localState.t1.y) cell.classList.add('lander1');
-                        else if (x === localState.t2.x && y === localState.t2.y) cell.classList.add('lander2');
-                        else if (x === targetX && y === targetY) cell.classList.add('target');
-                        else if (localState.craters.some(c => c.x === x && c.y === y)) cell.classList.add('crater');
-                        board.appendChild(cell);
+            try {
+                if (myRole.startsWith('nav')) {
+                    const board = document.getElementById('game-board');
+                    board.innerHTML = '';
+                    for (let y = 0; y < gridSize; y++) {
+                        for (let x = 0; x < gridSize; x++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'cell';
+                            if (x === localState.t1.x && y === localState.t1.y) cell.classList.add('lander1');
+                            else if (x === localState.t2.x && y === localState.t2.y) cell.classList.add('lander2');
+                            else if (x === targetX && y === targetY) cell.classList.add('target');
+                            else if (localState.craters.some(c => c.x === x && c.y === y)) cell.classList.add('crater');
+                            board.appendChild(cell);
+                        }
                     }
-                }
-                let myData = localState[`t${myTeam}`];
-                const msg = document.getElementById('nav-msg');
-                if (myData.status === 'win') msg.innerHTML = `🎉 TEAM ${myTeam === '1' ? 'A' : 'B'} WINS!`;
-                else if (myData.status === 'crash') { msg.innerHTML = "💥 PILOT CRASHED!"; msg.style.color = "#ff4c4c"; }
-                else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
-            } 
+                    let myData = localState[`t${myTeam}`];
+                    const msg = document.getElementById('nav-msg');
+                    if (myData.status === 'win') msg.innerHTML = `🎉 TEAM ${myTeam === '1' ? 'A' : 'B'} WINS!`;
+                    else if (myData.status === 'crash') { msg.innerHTML = "💥 PILOT CRASHED!"; msg.style.color = "#ff4c4c"; }
+                    else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
+                } 
 
-            if (myRole.startsWith('p')) {
-                let myData = localState[`t${myTeam}`];
-                document.getElementById('pilot-comm-screen').innerText = myData.command;
-                const msg = document.getElementById('pilot-msg');
-                if (myData.status === 'win') msg.innerHTML = "🎉 TOUCHDOWN! YOU WIN!";
-                else if (myData.status === 'crash') { msg.innerHTML = "💥 CRITICAL IMPACT!"; msg.style.color = "#ff4c4c"; }
-                else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
+                if (myRole.startsWith('p')) {
+                    let myData = localState[`t${myTeam}`];
+                    document.getElementById('pilot-comm-screen').innerText = myData.command;
+                    const msg = document.getElementById('pilot-msg');
+                    if (myData.status === 'win') msg.innerHTML = "🎉 TOUCHDOWN! YOU WIN!";
+                    else if (myData.status === 'crash') { msg.innerHTML = "💥 CRITICAL IMPACT!"; msg.style.color = "#ff4c4c"; }
+                    else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
+                }
+            } catch (err) {
+                console.error("UI Draw Error:", err);
             }
         }
     </script>
