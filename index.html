@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mars Touchdown - 4 Player Race</title>
+    <style>
+        body {
+            /* Default background before role selection */
+            background-image: url('interface.jpg');
+            background-size: cover;
+            background-position: center;
+            background-color: #0b0c10; /* Fallback */
+            color: #c5c6c7;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            box-sizing: border-box;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+        }
+
+        /* Dark overlay to make text readable over your images */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: -1;
+        }
+
+        h1 {
+            color: #66fcf1;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px #66fcf1, 2px 2px 5px #000;
+            text-align: center;
+        }
+
+        p.subtitle {
+            color: #45a29e;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* --- SCREEN SELECTION --- */
+        #role-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .team-row {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            background: rgba(31, 40, 51, 0.8);
+            border: 2px solid #45a29e;
+            border-radius: 10px;
+        }
+        .team-row h2 { margin: 0 20px 0 0; color: #fff; display: flex; align-items: center; }
+
+        .role-btn {
+            background-color: #1f2833;
+            color: #66fcf1;
+            border: 2px solid #45a29e;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .role-btn:hover { background-color: #45a29e; color: #0b0c10; }
+
+        /* --- HIDDEN CONTAINERS --- */
+        #pilot-screen, #navigator-screen {
+            display: none;
+            width: 100%;
+            max-width: 1000px;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- PILOT COCKPIT UI --- */
+        .cockpit {
+            width: 100%;
+            height: 350px;
+            background: rgba(27, 39, 53, 0.85);
+            border: 4px solid #45a29e;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        .dashboard {
+            width: 100%;
+            background: rgba(31, 40, 51, 0.95);
+            border: 4px solid #45a29e;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .warning-text { color: #ff4c4c; font-size: 1.5em; font-weight: bold; animation: blink 1.5s infinite; }
+
+        .incoming-command {
+            background-color: rgba(102, 252, 241, 0.1);
+            border: 2px solid #66fcf1;
+            padding: 20px;
+            font-size: 2em;
+            color: #66fcf1;
+            border-radius: 10px;
+            text-align: center;
+            width: 80%;
+            text-transform: uppercase;
+        }
+
+        #thruster-feedback { color: #fce205; font-weight: bold; font-size: 1.2em; height: 25px; margin-top: 15px; }
+
+        /* --- NAVIGATOR UI --- */
+        .nav-container { display: flex; gap: 30px; width: 100%; justify-content: center; }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(15, 30px);
+            grid-template-rows: repeat(15, 30px);
+            gap: 2px;
+            background-color: rgba(31, 40, 51, 0.9);
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #45a29e;
+        }
+
+        .cell {
+            width: 30px; height: 30px;
+            background-color: rgba(43, 58, 74, 0.7);
+            border-radius: 3px;
+            display: flex; justify-content: center; align-items: center; font-size: 16px;
+        }
+
+        .lander1 { background-color: #66fcf1; box-shadow: 0 0 10px #66fcf1; }
+        .lander1::after { content: "🚀"; }
+        .lander2 { background-color: #fca311; box-shadow: 0 0 10px #fca311; }
+        .lander2::after { content: "🛸"; }
+        .target { background-color: #c5c6c7; }
+        .target::after { content: "🎯"; }
+        .crater { background-color: #ff4c4c; box-shadow: 0 0 8px #ff4c4c; }
+        .crater::after { content: "⚠️"; }
+
+        .comm-panel {
+            background-color: rgba(31, 40, 51, 0.9);
+            padding: 20px; border-radius: 8px; border: 1px solid #45a29e;
+            display: flex; flex-direction: column; gap: 10px; min-width: 250px;
+        }
+
+        .cmd-btn {
+            background-color: #0b0c10; color: #66fcf1; border: 1px solid #66fcf1;
+            padding: 10px; font-size: 1.1em; cursor: pointer; border-radius: 5px; transition: 0.2s;
+        }
+        .cmd-btn:hover { background-color: #66fcf1; color: #0b0c10; }
+        .reset-btn { background-color: #45a29e; color: #0b0c10; border: none; padding: 10px; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        .sys-message { font-size: 1.5em; margin-top: 15px; color: #66fcf1; text-align: center; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <h1>Operation: Mars Touchdown</h1>
+    <p class="subtitle" id="role-title">Select Your Crew & Role</p>
+
+    <!-- ROLE SELECTION -->
+    <div id="role-selection">
+        <div class="team-row" style="border-color: #66fcf1;">
+            <h2 style="color:#66fcf1;">TEAM A 🚀</h2>
+            <button class="role-btn" onclick="selectRole('p1')">👨‍🚀 Pilot A</button>
+            <button class="role-btn" onclick="selectRole('nav1')">🛰️ Navigator A</button>
+        </div>
+        <div class="team-row" style="border-color: #fca311;">
+            <h2 style="color:#fca311;">TEAM B 🛸</h2>
+            <button class="role-btn" onclick="selectRole('p2')">👨‍🚀 Pilot B</button>
+            <button class="role-btn" onclick="selectRole('nav2')">🛰️ Navigator B</button>
+        </div>
+        <button class="reset-btn" onclick="resetGame()" style="margin-top: 10px;">Reset Global Server</button>
+    </div>
+
+    <!-- PILOT SCREEN -->
+    <div id="pilot-screen">
+        <div class="cockpit">
+            <div class="warning-text">WARNING: EXTERNAL CAMERAS OFFLINE. FLYING BLIND.</div>
+            <br><br>
+            <div class="incoming-command" id="pilot-comm-screen">AWAITING NAVIGATOR...</div>
+            <div id="thruster-feedback"></div>
+        </div>
+        <div class="dashboard">
+            <div class="controls-hint"><strong>FLIGHT CONTROLS:</strong> Use Arrow Keys (⬆️ ⬇️ ⬅️ ➡️)</div>
+            <div id="pilot-status" class="warning-text" style="color:#66fcf1; animation:none;">SYSTEMS NOMINAL</div>
+        </div>
+        <div class="sys-message" id="pilot-msg"></div>
+    </div>
+
+    <!-- NAVIGATOR SCREEN -->
+    <div id="navigator-screen">
+        <div class="nav-container">
+            <div>
+                <h3 style="color:#45a29e; margin-top:0;">Live Radar: Teams A & B</h3>
+                <div class="grid-container" id="game-board"></div>
+            </div>
+
+            <div class="comm-panel">
+                <h3>Transmit English Command</h3>
+                <button class="cmd-btn" onclick="sendCommand('Move Up / Forward ⬆️')">"Move Up / Forward"</button>
+                <button class="cmd-btn" onclick="sendCommand('Move Down / Back ⬇️')">"Move Down / Back"</button>
+                <button class="cmd-btn" onclick="sendCommand('Move Left ⬅️')">"Move Left"</button>
+                <button class="cmd-btn" onclick="sendCommand('Move Right ➡️')">"Move Right"</button>
+                <button class="cmd-btn" onclick="sendCommand('STOP! HAZARD! 🛑')" style="border-color:#ff4c4c; color:#ff4c4c; font-weight:bold;">"STOP! HAZARD!"</button>
+            </div>
+        </div>
+        <div class="sys-message" id="nav-msg"></div>
+    </div>
+
+    <script>
+        const gridSize = 15;
+        const targetX = 7, targetY = 0; // Center Target for both to race to
+
+        function generateCraters() {
+            let initialCraters = [];
+            for(let i = 0; i < 20; i++) {
+                let cx = Math.floor(Math.random() * gridSize);
+                let cy = Math.floor(Math.random() * gridSize);
+                // Keep safe zone around spawns and target
+                if(cy > 11 || cy < 3) cy = 7; 
+                let dx = Math.random() < 0.5 ? 1 : -1;
+                let dy = Math.random() < 0.5 ? 1 : -1;
+                initialCraters.push({x: cx, y: cy, dx, dy});
+            }
+            return initialCraters;
+        }
+
+        let myRole = ''; 
+        let myTeam = ''; // '1' for Team A, '2' for Team B
+        
+        let localState = { 
+            t1: { x: 3, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR A...' },
+            t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
+            craters: generateCraters()
+        };
+
+        let obstacleInterval;
+
+        // --- ROLE SELECTION & BACKGROUNDS ---
+        function selectRole(role) {
+            myRole = role;
+            myTeam = role.includes('1') ? '1' : '2';
+            
+            document.getElementById('role-selection').style.display = 'none';
+
+            if (role.startsWith('p')) {
+                document.body.style.backgroundImage = "url('pilot.jpg')";
+                document.getElementById('role-title').innerText = `TEAM ${myTeam === '1' ? 'A' : 'B'} COCKPIT (Blind Flight)`;
+                document.getElementById('pilot-screen').style.display = 'flex';
+            } else {
+                document.body.style.backgroundImage = "url('navigator.jpg')";
+                document.getElementById('role-title').innerText = `TEAM ${myTeam === '1' ? 'A' : 'B'} COMMAND (Radar)`;
+                document.getElementById('navigator-screen').style.display = 'flex';
+                startObstacles(); // Navigators host the obstacle physics
+            }
+
+            syncState();
+            // Listen for changes from other devices/tabs (Local Storage syncs across windows)
+            window.addEventListener('storage', (e) => {
+                if(e.key === 'marsMultiplayerState') {
+                    localState = JSON.parse(e.newValue);
+                    updateUI();
+                }
+            });
+        }
+
+        // --- GAME LOGIC & SYNC ---
+        function updateState(newState) {
+            localState = { ...localState, ...newState };
+            localStorage.setItem('marsMultiplayerState', JSON.stringify(localState)); 
+            // Note: Replace localStorage with Firebase here for true cross-device network sync
+            updateUI(); 
+        }
+
+        function syncState() {
+            const saved = localStorage.getItem('marsMultiplayerState');
+            if (saved) localState = JSON.parse(saved);
+            else updateState(localState);
+            updateUI();
+        }
+
+        function resetGame() {
+            updateState({ 
+                t1: { x: 3, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR A...' },
+                t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
+                craters: generateCraters()
+            });
+            alert("Mission Server Reset!");
+        }
+
+        // --- OBSTACLE MOVEMENT ---
+        function startObstacles() {
+            if (obstacleInterval) clearInterval(obstacleInterval);
+            obstacleInterval = setInterval(() => {
+                let newCraters = localState.craters.map(c => {
+                    let nx = c.x + c.dx; let ny = c.y + c.dy;
+                    if (nx < 0 || nx >= gridSize) { nx = c.x; c.dx *= -1; }
+                    if (ny < 0 || ny >= gridSize) { ny = c.y; c.dy *= -1; }
+                    return { ...c, x: nx, y: ny };
+                });
+
+                let crash1 = newCraters.some(c => c.x === localState.t1.x && c.y === localState.t1.y);
+                let crash2 = newCraters.some(c => c.x === localState.t2.x && c.y === localState.t2.y);
+
+                updateState({ 
+                    craters: newCraters,
+                    t1: { ...localState.t1, status: crash1 ? 'crash' : localState.t1.status },
+                    t2: { ...localState.t2, status: crash2 ? 'crash' : localState.t2.status }
+                });
+            }, 1200); 
+        }
+
+        // --- CONTROLS ---
+        function sendCommand(cmd) {
+            let teamData = localState[`t${myTeam}`];
+            if (teamData.status !== 'playing') return;
+            teamData.command = cmd;
+            updateState({ [`t${myTeam}`]: teamData });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!myRole.startsWith('p')) return;
+            let teamData = localState[`t${myTeam}`];
+            if (teamData.status !== 'playing') return;
+
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) e.preventDefault();
+
+            let nx = teamData.x; let ny = teamData.y;
+            if (e.key === 'ArrowUp' && ny > 0) ny--;
+            if (e.key === 'ArrowDown' && ny < gridSize - 1) ny++;
+            if (e.key === 'ArrowLeft' && nx > 0) nx--;
+            if (e.key === 'ArrowRight' && nx < gridSize - 1) nx++;
+
+            if (nx !== teamData.x || ny !== teamData.y) {
+                let fb = document.getElementById('thruster-feedback');
+                fb.innerText = `>>> THRUSTER FIRED: ${e.key.replace('Arrow', '')} <<<`;
+                setTimeout(() => fb.innerText = "", 600);
+                
+                let stat = 'playing';
+                if (nx === targetX && ny === targetY) stat = 'win';
+                else if (localState.craters.some(c => c.x === nx && c.y === ny)) stat = 'crash';
+
+                updateState({ [`t${myTeam}`]: { x: nx, y: ny, status: stat, command: 'MOVING...' } });
+            }
+        });
+
+        // --- RENDERING ---
+        function updateUI() {
+            if (myRole.startsWith('nav')) {
+                const board = document.getElementById('game-board');
+                board.innerHTML = '';
+                for (let y = 0; y < gridSize; y++) {
+                    for (let x = 0; x < gridSize; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        if (x === localState.t1.x && y === localState.t1.y) cell.classList.add('lander1');
+                        else if (x === localState.t2.x && y === localState.t2.y) cell.classList.add('lander2');
+                        else if (x === targetX && y === targetY) cell.classList.add('target');
+                        else if (localState.craters.some(c => c.x === x && c.y === y)) cell.classList.add('crater');
+                        board.appendChild(cell);
+                    }
+                }
+                let myData = localState[`t${myTeam}`];
+                const msg = document.getElementById('nav-msg');
+                if (myData.status === 'win') msg.innerHTML = `🎉 TEAM ${myTeam === '1' ? 'A' : 'B'} WINS!`;
+                else if (myData.status === 'crash') { msg.innerHTML = "💥 PILOT CRASHED!"; msg.style.color = "#ff4c4c"; }
+                else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
+            } 
+
+            if (myRole.startsWith('p')) {
+                let myData = localState[`t${myTeam}`];
+                document.getElementById('pilot-comm-screen').innerText = myData.command;
+                const msg = document.getElementById('pilot-msg');
+                if (myData.status === 'win') msg.innerHTML = "🎉 TOUCHDOWN! YOU WIN!";
+                else if (myData.status === 'crash') { msg.innerHTML = "💥 CRITICAL IMPACT!"; msg.style.color = "#ff4c4c"; }
+                else { msg.innerHTML = ""; msg.style.color = "#66fcf1"; }
+            }
+        }
+    </script>
+</body>
+</html>
