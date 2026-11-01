@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mars Touchdown - 4 Player Race</title>
+    <title>Mars Touchdown - 4 Player Race (Firebase)</title>
+    <!-- Firebase Compat Libraries for easy setup -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
     <style>
         body {
             /* Default background before role selection */
             background-image: url('interface.jpg');
             background-size: cover;
             background-position: center;
-            background-color: #0b0c10; /* Fallback */
+            background-color: #0b0c10;
             color: #c5c6c7;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -23,7 +27,6 @@
             text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
         }
 
-        /* Dark overlay to make text readable over your images */
         .overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -46,123 +49,65 @@
         }
 
         /* --- SCREEN SELECTION --- */
-        #role-selection {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            margin-top: 30px;
-        }
+        #role-selection { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
         .team-row {
-            display: flex;
-            gap: 20px;
-            padding: 20px;
+            display: flex; gap: 20px; padding: 20px;
             background: rgba(31, 40, 51, 0.8);
-            border: 2px solid #45a29e;
-            border-radius: 10px;
+            border: 2px solid #45a29e; border-radius: 10px;
         }
         .team-row h2 { margin: 0 20px 0 0; color: #fff; display: flex; align-items: center; }
 
         .role-btn {
-            background-color: #1f2833;
-            color: #66fcf1;
-            border: 2px solid #45a29e;
-            padding: 15px 30px;
-            font-size: 1.2em;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: 0.3s;
+            background-color: #1f2833; color: #66fcf1; border: 2px solid #45a29e;
+            padding: 15px 30px; font-size: 1.2em; border-radius: 10px; cursor: pointer; transition: 0.3s;
         }
-
         .role-btn:hover { background-color: #45a29e; color: #0b0c10; }
 
         /* --- HIDDEN CONTAINERS --- */
         #pilot-screen, #navigator-screen {
-            display: none;
-            width: 100%;
-            max-width: 1000px;
-            flex-direction: column;
-            align-items: center;
+            display: none; width: 100%; max-width: 1000px; flex-direction: column; align-items: center;
         }
 
         /* --- PILOT COCKPIT UI --- */
         .cockpit {
-            width: 100%;
-            height: 350px;
-            background: rgba(27, 39, 53, 0.85);
-            border: 4px solid #45a29e;
-            border-radius: 20px 20px 0 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            width: 100%; height: 350px; background: rgba(27, 39, 53, 0.85);
+            border: 4px solid #45a29e; border-radius: 20px 20px 0 0;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
         }
 
         .dashboard {
-            width: 100%;
-            background: rgba(31, 40, 51, 0.95);
-            border: 4px solid #45a29e;
-            border-top: none;
-            border-radius: 0 0 20px 20px;
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            width: 100%; background: rgba(31, 40, 51, 0.95);
+            border: 4px solid #45a29e; border-top: none; border-radius: 0 0 20px 20px;
+            padding: 20px; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center;
         }
 
         .warning-text { color: #ff4c4c; font-size: 1.5em; font-weight: bold; animation: blink 1.5s infinite; }
-
         .incoming-command {
-            background-color: rgba(102, 252, 241, 0.1);
-            border: 2px solid #66fcf1;
-            padding: 20px;
-            font-size: 2em;
-            color: #66fcf1;
-            border-radius: 10px;
-            text-align: center;
-            width: 80%;
-            text-transform: uppercase;
+            background-color: rgba(102, 252, 241, 0.1); border: 2px solid #66fcf1;
+            padding: 20px; font-size: 2em; color: #66fcf1; border-radius: 10px; text-align: center; width: 80%; text-transform: uppercase;
         }
-
         #thruster-feedback { color: #fce205; font-weight: bold; font-size: 1.2em; height: 25px; margin-top: 15px; }
 
         /* --- NAVIGATOR UI --- */
         .nav-container { display: flex; gap: 30px; width: 100%; justify-content: center; }
-
         .grid-container {
-            display: grid;
-            grid-template-columns: repeat(15, 30px);
-            grid-template-rows: repeat(15, 30px);
-            gap: 2px;
-            background-color: rgba(31, 40, 51, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            border: 2px solid #45a29e;
+            display: grid; grid-template-columns: repeat(15, 30px); grid-template-rows: repeat(15, 30px);
+            gap: 2px; background-color: rgba(31, 40, 51, 0.9); padding: 10px; border-radius: 8px; border: 2px solid #45a29e;
         }
-
         .cell {
-            width: 30px; height: 30px;
-            background-color: rgba(43, 58, 74, 0.7);
-            border-radius: 3px;
-            display: flex; justify-content: center; align-items: center; font-size: 16px;
+            width: 30px; height: 30px; background-color: rgba(43, 58, 74, 0.7);
+            border-radius: 3px; display: flex; justify-content: center; align-items: center; font-size: 16px;
         }
-
-        .lander1 { background-color: #66fcf1; box-shadow: 0 0 10px #66fcf1; }
-        .lander1::after { content: "🚀"; }
-        .lander2 { background-color: #fca311; box-shadow: 0 0 10px #fca311; }
-        .lander2::after { content: "🛸"; }
-        .target { background-color: #c5c6c7; }
-        .target::after { content: "🎯"; }
-        .crater { background-color: #ff4c4c; box-shadow: 0 0 8px #ff4c4c; }
-        .crater::after { content: "⚠️"; }
+        .lander1 { background-color: #66fcf1; box-shadow: 0 0 10px #66fcf1; } .lander1::after { content: "🚀"; }
+        .lander2 { background-color: #fca311; box-shadow: 0 0 10px #fca311; } .lander2::after { content: "🛸"; }
+        .target { background-color: #c5c6c7; } .target::after { content: "🎯"; }
+        .crater { background-color: #ff4c4c; box-shadow: 0 0 8px #ff4c4c; } .crater::after { content: "⚠️"; }
 
         .comm-panel {
-            background-color: rgba(31, 40, 51, 0.9);
-            padding: 20px; border-radius: 8px; border: 1px solid #45a29e;
-            display: flex; flex-direction: column; gap: 10px; min-width: 250px;
+            background-color: rgba(31, 40, 51, 0.9); padding: 20px; border-radius: 8px;
+            border: 1px solid #45a29e; display: flex; flex-direction: column; gap: 10px; min-width: 250px;
         }
-
         .cmd-btn {
             background-color: #0b0c10; color: #66fcf1; border: 1px solid #66fcf1;
             padding: 10px; font-size: 1.1em; cursor: pointer; border-radius: 5px; transition: 0.2s;
@@ -217,7 +162,6 @@
                 <h3 style="color:#45a29e; margin-top:0;">Live Radar: Teams A & B</h3>
                 <div class="grid-container" id="game-board"></div>
             </div>
-
             <div class="comm-panel">
                 <h3>Transmit English Command</h3>
                 <button class="cmd-btn" onclick="sendCommand('Move Up / Forward ⬆️')">"Move Up / Forward"</button>
@@ -231,15 +175,36 @@
     </div>
 
     <script>
+        // ==========================================
+        // STEP 4: PASTE YOUR FIREBASE CONFIG HERE
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDNgqU6lIVBxk3nUKaWcCJrqWAiffeA8AE",
+  authDomain: "marslanding-3ebcd.firebaseapp.com",
+  databaseURL: "https://marslanding-3ebcd-default-rtdb.firebaseio.com",
+  projectId: "marslanding-3ebcd",
+  storageBucket: "marslanding-3ebcd.firebasestorage.app",
+  messagingSenderId: "309790015736",
+  appId: "1:309790015736:web:b209208d103051d956bb0d",
+  measurementId: "G-V3S59RLNGC"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const gameStateRef = db.ref('marsGame');
+
+        // ==========================================
+        // GAME LOGIC
+        // ==========================================
         const gridSize = 15;
-        const targetX = 7, targetY = 0; // Center Target for both to race to
+        const targetX = 7, targetY = 0;
 
         function generateCraters() {
             let initialCraters = [];
             for(let i = 0; i < 20; i++) {
                 let cx = Math.floor(Math.random() * gridSize);
                 let cy = Math.floor(Math.random() * gridSize);
-                // Keep safe zone around spawns and target
                 if(cy > 11 || cy < 3) cy = 7; 
                 let dx = Math.random() < 0.5 ? 1 : -1;
                 let dy = Math.random() < 0.5 ? 1 : -1;
@@ -249,8 +214,9 @@
         }
 
         let myRole = ''; 
-        let myTeam = ''; // '1' for Team A, '2' for Team B
-        
+        let myTeam = ''; 
+
+        // Default state fallback
         let localState = { 
             t1: { x: 3, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR A...' },
             t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
@@ -259,11 +225,24 @@
 
         let obstacleInterval;
 
-        // --- ROLE SELECTION & BACKGROUNDS ---
+        // Firebase Sync Listener
+        gameStateRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                localState = data;
+                updateUI();
+            }
+        });
+
+        function updateState(newState) {
+            const updated = { ...localState, ...newState };
+            gameStateRef.set(updated); // Push to Firebase instead of localStorage
+        }
+
         function selectRole(role) {
             myRole = role;
             myTeam = role.includes('1') ? '1' : '2';
-            
+
             document.getElementById('role-selection').style.display = 'none';
 
             if (role.startsWith('p')) {
@@ -274,32 +253,9 @@
                 document.body.style.backgroundImage = "url('navigator.jpg')";
                 document.getElementById('role-title').innerText = `TEAM ${myTeam === '1' ? 'A' : 'B'} COMMAND (Radar)`;
                 document.getElementById('navigator-screen').style.display = 'flex';
-                startObstacles(); // Navigators host the obstacle physics
+                // Only Nav A acts as the server host for hazards to prevent double-bouncing
+                if (role === 'nav1') startObstacles(); 
             }
-
-            syncState();
-            // Listen for changes from other devices/tabs (Local Storage syncs across windows)
-            window.addEventListener('storage', (e) => {
-                if(e.key === 'marsMultiplayerState') {
-                    localState = JSON.parse(e.newValue);
-                    updateUI();
-                }
-            });
-        }
-
-        // --- GAME LOGIC & SYNC ---
-        function updateState(newState) {
-            localState = { ...localState, ...newState };
-            localStorage.setItem('marsMultiplayerState', JSON.stringify(localState)); 
-            // Note: Replace localStorage with Firebase here for true cross-device network sync
-            updateUI(); 
-        }
-
-        function syncState() {
-            const saved = localStorage.getItem('marsMultiplayerState');
-            if (saved) localState = JSON.parse(saved);
-            else updateState(localState);
-            updateUI();
         }
 
         function resetGame() {
@@ -311,7 +267,6 @@
             alert("Mission Server Reset!");
         }
 
-        // --- OBSTACLE MOVEMENT ---
         function startObstacles() {
             if (obstacleInterval) clearInterval(obstacleInterval);
             obstacleInterval = setInterval(() => {
@@ -333,7 +288,6 @@
             }, 1200); 
         }
 
-        // --- CONTROLS ---
         function sendCommand(cmd) {
             let teamData = localState[`t${myTeam}`];
             if (teamData.status !== 'playing') return;
@@ -358,7 +312,7 @@
                 let fb = document.getElementById('thruster-feedback');
                 fb.innerText = `>>> THRUSTER FIRED: ${e.key.replace('Arrow', '')} <<<`;
                 setTimeout(() => fb.innerText = "", 600);
-                
+
                 let stat = 'playing';
                 if (nx === targetX && ny === targetY) stat = 'win';
                 else if (localState.craters.some(c => c.x === nx && c.y === ny)) stat = 'crash';
@@ -367,8 +321,9 @@
             }
         });
 
-        // --- RENDERING ---
         function updateUI() {
+            if (!localState || !localState.t1) return;
+
             if (myRole.startsWith('nav')) {
                 const board = document.getElementById('game-board');
                 board.innerHTML = '';
