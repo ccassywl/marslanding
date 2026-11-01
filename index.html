@@ -181,7 +181,7 @@
         // the real keys from your Firebase project!
         // ==========================================
         const firebaseConfig = {
-           apiKey: "AIzaSyAJ1WQFi7YVjNIRsPIcPQn4GLrdGo7QXNI",
+            apiKey: "AIzaSyAJ1WQFi7YVjNIRsPIcPQn4GLrdGo7QXNI",
   authDomain: "mars-touchdown.firebaseapp.com",
   databaseURL: "https://mars-touchdown-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "mars-touchdown",
@@ -226,18 +226,23 @@
 
         let obstacleInterval;
 
-        // Firebase Sync Listener
+        // Firebase Sync Listener with Empty Database Fix!
         gameStateRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // If there is data in Firebase, use it
                 localState = data;
-                updateUI();
+            } else {
+                // If the database is brand new and empty, push our default state to it!
+                gameStateRef.set(localState);
             }
+            // Always draw the UI!
+            updateUI();
         });
 
         function updateState(newState) {
             const updated = { ...localState, ...newState };
-            gameStateRef.set(updated); // Push to Firebase instead of localStorage
+            gameStateRef.set(updated); 
         }
 
         function selectRole(role) {
@@ -254,6 +259,10 @@
                 document.body.style.backgroundImage = "url('navigator.jpg')";
                 document.getElementById('role-title').innerText = `TEAM ${myTeam === '1' ? 'A' : 'B'} COMMAND (Radar)`;
                 document.getElementById('navigator-screen').style.display = 'flex';
+                
+                // Ensure UI is drawn immediately when switching to Navigator screen
+                updateUI();
+                
                 // Only Nav A acts as the server host for hazards to prevent double-bouncing
                 if (role === 'nav1') startObstacles(); 
             }
