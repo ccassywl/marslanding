@@ -115,7 +115,7 @@
         .cmd-btn:hover { background-color: #66fcf1; color: #0b0c10; }
         .reset-btn { background-color: #45a29e; color: #0b0c10; border: none; padding: 10px; font-weight: bold; cursor: pointer; border-radius: 5px; }
         .sys-message { font-size: 1.5em; margin-top: 15px; color: #66fcf1; text-align: center; }
-        
+
         #error-banner {
             display: none; background: #ff4c4c; color: white; padding: 10px; border-radius: 5px; font-weight: bold; margin-bottom: 15px; text-align: center;
         }
@@ -234,6 +234,7 @@
         };
 
         let obstacleInterval;
+        let obstacleTimeout; // Added timeout for the 10-second freeze
 
         // Listen for Firebase changes (with Error Handling)
         if (gameStateRef) {
@@ -282,39 +283,54 @@
                 document.getElementById('navigator-screen').style.display = 'flex';
                 if (role === 'nav1') startObstacles(); 
             }
-            
+
             // ALWAYS force a UI draw the moment they select a role. 
             // This prevents the blank grid issue entirely.
             updateUI();
         }
 
         function resetGame() {
+            // Clear movement timers so they don't overlap if reset during the countdown
+            if (obstacleInterval) clearInterval(obstacleInterval);
+            if (obstacleTimeout) clearTimeout(obstacleTimeout);
+
             updateState({ 
                 t1: { x: 3, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR A...' },
                 t2: { x: 11, y: 14, status: 'playing', command: 'AWAITING NAVIGATOR B...' },
                 craters: generateCraters()
             });
+
+            // Restart the obstacle logic if the host hits reset
+            if (myRole === 'nav1') {
+                startObstacles();
+            }
         }
 
         function startObstacles() {
             if (obstacleInterval) clearInterval(obstacleInterval);
-            obstacleInterval = setInterval(() => {
-                let newCraters = localState.craters.map(c => {
-                    let nx = c.x + c.dx; let ny = c.y + c.dy;
-                    if (nx < 0 || nx >= gridSize) { nx = c.x; c.dx *= -1; }
-                    if (ny < 0 || ny >= gridSize) { ny = c.y; c.dy *= -1; }
-                    return { ...c, x: nx, y: ny };
-                });
+            if (obstacleTimeout) clearTimeout(obstacleTimeout);
 
-                let crash1 = newCraters.some(c => c.x === localState.t1.x && c.y === localState.t1.y);
-                let crash2 = newCraters.some(c => c.x === localState.t2.x && c.y === localState.t2.y);
+            // Give students a 10-second (10000ms) freeze head start!
+            obstacleTimeout = setTimeout(() => {
+                // Movement is now slower, changing every 2 seconds (2000ms) instead of 1.2s
+                obstacleInterval = setInterval(() => {
+                    let newCraters = localState.craters.map(c => {
+                        let nx = c.x + c.dx; let ny = c.y + c.dy;
+                        if (nx < 0 || nx >= gridSize) { nx = c.x; c.dx *= -1; }
+                        if (ny < 0 || ny >= gridSize) { ny = c.y; c.dy *= -1; }
+                        return { ...c, x: nx, y: ny };
+                    });
 
-                updateState({ 
-                    craters: newCraters,
-                    t1: { ...localState.t1, status: crash1 ? 'crash' : localState.t1.status },
-                    t2: { ...localState.t2, status: crash2 ? 'crash' : localState.t2.status }
-                });
-            }, 1200); 
+                    let crash1 = newCraters.some(c => c.x === localState.t1.x && c.y === localState.t1.y);
+                    let crash2 = newCraters.some(c => c.x === localState.t2.x && c.y === localState.t2.y);
+
+                    updateState({ 
+                        craters: newCraters,
+                        t1: { ...localState.t1, status: crash1 ? 'crash' : localState.t1.status },
+                        t2: { ...localState.t2, status: crash2 ? 'crash' : localState.t2.status }
+                    });
+                }, 2000); 
+            }, 10000);
         }
 
         function sendCommand(cmd) {
